@@ -1,132 +1,106 @@
 package com.worescloud.workdesk.common.configuration;
 
+import com.worescloud.workdesk.common.configuration.impl.FileConfigurationReader;
 import com.worescloud.workdesk.common.exception.CommonException;
-import org.apache.commons.beanutils.ConvertUtils;
+import com.worescloud.workdesk.common.exception.WcRuntimeException;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 
+import static com.worescloud.workdesk.common.exception.CommonException.Error.NOT_ANNOTATED_WITH_EXPECTED_ANNOTATION;
 import static com.worescloud.workdesk.common.exception.CommonException.Error.PROPERTY_METHOD_MISSING_PARAMETER;
+import static java.lang.reflect.Modifier.isPublic;
+import static org.apache.commons.beanutils.ConvertUtils.convert;
 
 public final class CoreProperties {
 
-	private static Map<String, NullableProperties> propertiesMap = new HashMap<String, NullableProperties>();
-	
-	private static Map<String, File> propertiesFileMap = new HashMap<String, File>();
-	
-	private static Map<String, Long> lastModifyTimeMap = new HashMap<String, Long>();
+	private static ConfigurationReader reader;
 
-	@SuppressWarnings("unchecked")
-	public static synchronized <T> T getProperties(Class<T> clazz) throws CommonException
-	{
-		// create instance for type T.
-		T instance;
-		try {
-			Constructor<?> constructor = clazz.getConstructor();
-			instance = (T) constructor.newInstance();
-		} catch (Exception e) {
-			throw new CommonException(e);
+	public static synchronized void registerConfigurationReader(ConfigurationReader reader) {
+		if (CoreProperties.reader != null) {
+			throw new WcRuntimeException("configuration reader already registered!");
 		}
 
-		// check annotation
-		if (!clazz.isAnnotationPresent(com.worescloud.workdesk.common.configuration.Properties.class)) {
-			return instance;
-		}
+		CoreProperties.reader = reader;
+	}
+
+	public static synchronized <T> T getProperties(Class<T> clazz) throws CommonException {
+		ensureReader();
 
 		// read properties file.
+		Properties properties = readProperties(clazz);
+
+		// find set method which has Property annotation.
+		return updateInstance(clazz, properties);
+	}
+
+	private static void ensureReader() {
+		if (reader == null) {
+			reader = new FileConfigurationReader();
+		}
+	}
+
+	private static <T> Properties readProperties(Class<T> clazz) throws CommonException {
+
+		if (!clazz.isAnnotationPresent(com.worescloud.workdesk.common.configuration.Properties.class)) {
+			throw new CommonException(NOT_ANNOTATED_WITH_EXPECTED_ANNOTATION, com.worescloud.workdesk.common.configuration.Properties.class);
+		}
+
 		com.worescloud.workdesk.common.configuration.Properties annotationProperties
 				= clazz.getAnnotation(com.worescloud.workdesk.common.configuration.Properties.class);
-		String propertiesName = annotationProperties.value();
-		String dir = annotationProperties.dir();
-		
-		NullableProperties properties = propertiesMap.get(propertiesName);
-		File propertiesFile = propertiesFileMap.get(propertiesName);
-		Long lastModifyTime = lastModifyTimeMap.get(propertiesName);
-		if (properties == null || propertiesFile == null || propertiesFile.lastModified() > lastModifyTime) {
-			propertiesFile = FileFinder.findFile(propertiesName, dir);
-			propertiesFileMap.put(propertiesName, propertiesFile);
-			
-			lastModifyTime = propertiesFile.lastModified();
-            lastModifyTimeMap.put(propertiesName, lastModifyTime);
-            
-	        properties = (NullableProperties) readProperties(propertiesFile);
-	        propertiesMap.put(propertiesName, properties);
-		} else {
-		    properties = propertiesMap.get(propertiesName);
+
+		try {
+			return reader.readProperties(annotationProperties.value());
+		} catch (java.io.IOException e) {
+			throw new CommonException(e);
 		}
-		
-		// find set method which has Property annotation.
+	}
+
+	private static <T> T updateInstance(Class<T> clazz, Properties properties) throws CommonException {
+
+		// create instance for type T.
+		T instance = createInstance(clazz);
+
 		Method[] methods = clazz.getMethods();
 		for (Method method : methods) {
 			int mod = method.getModifiers();
-			if (!Modifier.isPublic(mod) || !method.isAnnotationPresent(Property.class)) {
+			if (!isPublic(mod) || !method.isAnnotationPresent(Property.class)) {
 				continue;
 			}
-			
+
 			Class<?>[] parameterTypes = method.getParameterTypes();
 			if (parameterTypes.length != 1) {
 				throw new CommonException(PROPERTY_METHOD_MISSING_PARAMETER, method.getName(), 1);
 			}
-			
+
 			Property annotationProperty = method.getAnnotation(Property.class);
-			String key = annotationProperty.key();
-			String defaultValue = annotationProperty.defaultValue();
-			String propertyValue = properties.getProperty(key, defaultValue);
+			String propertyValue = properties.getProperty(annotationProperty.key(), annotationProperty.defaultValue());
 			try {
-				method.invoke(instance, ConvertUtils.convert(propertyValue, parameterTypes[0]));
+				method.invoke(instance, convert(propertyValue, parameterTypes[0]));
 			} catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
-				e.printStackTrace();
+				throw new CommonException(e);
 			}
 		}
-		
+
 		if (instance instanceof Properties) {
 			Properties props = (Properties) instance;
 			props.putAll(properties);
 		}
-		
+
 		return instance;
 	}
 
-	private static Properties readProperties(File file) throws CommonException {
-		BufferedInputStream bis = null;
-		Properties prop = null;
+	@SuppressWarnings("unchecked")
+	private static <T> T createInstance(Class<T> clazz) throws CommonException {
+
 		try {
-			bis = new BufferedInputStream(new FileInputStream(file));
-			prop = new NullableProperties();
-			prop.load(bis);
-		} catch (SecurityException | IOException ex1) {
-			throw new CommonException(ex1);
-		} finally {
-			try {
-				if (bis != null) {
-					bis.close();
-				}
-			} catch (IOException ignored) {
-			}
+			Constructor<?> constructor = clazz.getConstructor();
+			return (T) constructor.newInstance();
+		} catch (Exception e) {
+			throw new CommonException(e);
 		}
-		return prop;
 	}
-	
-	public static class NullableProperties extends Properties {
 
-		private static final long serialVersionUID = 8591137352668286302L;
-
-		public String getProperty(String key, String defaultValue) {
-			String origin = super.getProperty(key, defaultValue);
-			if (origin != null && origin.trim().length() == 0) {
-				// 空白
-				return defaultValue;
-			}
-			return origin;
-		}
-	};
 }

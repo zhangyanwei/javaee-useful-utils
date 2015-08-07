@@ -1,8 +1,8 @@
 package com.worescloud.workdesk.common.exception;
 
-import java.io.Serializable;
-
 import com.worescloud.workdesk.common.exception.code.ExceptionCode;
+
+import java.io.Serializable;
 
 public abstract class AbstractException extends Exception implements WcException {
 

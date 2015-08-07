@@ -11,5 +11,4 @@ public @interface Properties {
 
 	String value();
 
-	String dir() default "";
 }

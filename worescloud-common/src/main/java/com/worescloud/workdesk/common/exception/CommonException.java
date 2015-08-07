@@ -13,7 +13,8 @@ public class CommonException extends AbstractException {
 
     public enum Error {
         UNKNOWN(INNER, 0, "unknown error"),
-        PROPERTY_METHOD_MISSING_PARAMETER(ILLEGAL, 0, "property set method missing parameters");
+        NOT_ANNOTATED_WITH_EXPECTED_ANNOTATION(ILLEGAL, 0, "class not annotated with expected annotation"),
+        PROPERTY_METHOD_MISSING_PARAMETER(ILLEGAL, 1, "property set method missing parameters");
 
         private final ExceptionCode code;
 

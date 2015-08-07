@@ -1,11 +1,11 @@
 package com.worescloud.workdesk.common.exception;
 
-import static com.worescloud.workdesk.common.exception.code.ExceptionCategory.INNER;
-import static com.worescloud.workdesk.common.exception.code.ExceptionModule.COMMON;
+import com.worescloud.workdesk.common.exception.code.ExceptionCode;
 
 import java.io.Serializable;
 
-import com.worescloud.workdesk.common.exception.code.ExceptionCode;
+import static com.worescloud.workdesk.common.exception.code.ExceptionCategory.INNER;
+import static com.worescloud.workdesk.common.exception.code.ExceptionModule.COMMON;
 
 public class WcRuntimeException extends RuntimeException implements WcException {
 
@@ -20,6 +20,10 @@ public class WcRuntimeException extends RuntimeException implements WcException 
 	public WcRuntimeException(ExceptionCode code, Serializable... parameters) {
 		this.code = code;
 		this.parameters = parameters;
+	}
+
+	public WcRuntimeException(String message) {
+		digestException(null);
 	}
 
 	public WcRuntimeException(Throwable throwable) {

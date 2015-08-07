@@ -1,9 +1,7 @@
-# Storage Engine
-
 ##### common
 Provides some useful utilities
 
-###### 1. JMX - used to expose any java bean to be manageable by JMX
+###### 1. JMX - used to expose any java bean could be managed by JMX
 
 Step 1. define an interface to describe the managed bean
 ```java

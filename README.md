@@ -33,9 +33,9 @@ import com.worescloud.workdesk.common.jmx.annotations.*;
         }
 )
 public interface SampleMXBean {}
-...
+```
 
-Step 2. implement the above interface, and extends [CdiBean(worescloud-common/src/main/java/com/worescloud/workdesk/common/jmx/CdiMBean.java)] to make it could be auto registered.
+Step 2. implement the above interface, and extends [CdiBean](worescloud-common/src/main/java/com/worescloud/workdesk/common/jmx/CdiMBean.java) to make it could be auto registered.
 ```java
 import com.worescloud.workdesk.common.jmx.CdiMBean;
 import com.worescloud.workdesk.service.startup.jmx.SampleManagedBeanMXBean;
@@ -79,7 +79,7 @@ public class Sample extends CdiMBean implements SampleMXBean {
         System.out.println("You have invoked this method through JMX client");
     }
 }
-...
+```
 
 ##### storage-engine
 Provides a convenience way to manipulate the store engine.
